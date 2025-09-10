@@ -5,10 +5,8 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: xctions/rust-release@v1
-        with:
-          release-tag: ${{ github.ref_name }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+    uses: xctions/xctions-rust-release/.github/workflows/rust-release.yml@54b47752a437ff4512eafbbed71bde5c3a9e4ef8
+    with:
+      release-tag: ${{ github.ref_name }}
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
