@@ -1,0 +1,16 @@
+{
+	"name": "Rust",
+	"image": "mcr.microsoft.com/devcontainers/rust:latest",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"usernamehw.errorlens"
+			],
+			"settings": {
+				"rust-analyzer.check.command": "clippy",
+				"rust-analyzer.checkOnSave": true
+			}
+		}
+	}
+}
