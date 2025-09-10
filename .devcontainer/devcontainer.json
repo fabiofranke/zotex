@@ -12,5 +12,6 @@
 				"rust-analyzer.checkOnSave": true
 			}
 		}
-	}
+	},
+	"postCreateCommand": "cargo install cargo-release"
 }
