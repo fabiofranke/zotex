@@ -19,6 +19,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let args = Args::parse();
     let client = reqwest::Client::new();
 
@@ -39,9 +40,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             println!("{}", body);
         }
-        println!("Successfully fetched Zotero items.");
+        log::info!("Successfully fetched Zotero items.");
     } else {
-        eprintln!("Error: Received status code {}", resp.status());
+        log::error!("Received status code {}", resp.status());
     }
     Ok(())
 }
