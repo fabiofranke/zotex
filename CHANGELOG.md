@@ -9,3 +9,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 - simple executable that fetches a zotero lib once in biblatex format
+
+<!-- next-url -->
+[Unreleased]: https://github.com/fabiofranke/zotex/compare/v0.1.0...HEAD
