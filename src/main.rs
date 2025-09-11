@@ -9,7 +9,6 @@ use tokio_util::sync::CancellationToken;
 use crate::file_syncer::FileSyncer;
 use crate::zotero_client::ReqwestZoteroClient;
 
-/// Simple program to fetch Zotero items in BibLaTeX format.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -21,11 +20,11 @@ struct Args {
     #[arg(short, long)]
     api_key: String,
 
-    /// File that the library will be written to.
+    /// File that the library will be exported to
     #[arg(short, long)]
     file: String,
 
-    /// Interval (in seconds) between syncs. If not provided, the program will run once and exit.
+    /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
     #[arg(short, long)]
     interval: Option<u64>,
 }
