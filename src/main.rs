@@ -1,9 +1,10 @@
+mod file_syncer;
 mod zotero_client;
 
 use clap::Parser;
 
+use crate::file_syncer::FileSyncer;
 use crate::zotero_client::ReqwestZoteroClient;
-use crate::zotero_client::ZoteroClient;
 
 /// Simple program to fetch Zotero items in BibLaTeX format.
 #[derive(Parser, Debug)]
@@ -28,15 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
+    let syncer = FileSyncer::try_new(client, args.file.clone()).await?;
 
-    match client.fetch_items().await {
-        Ok(items) => {
-            std::fs::write(args.file, items).unwrap();
-            log::info!("Successfully fetched Zotero items.");
-        }
-        Err(e) => {
-            log::error!("Error fetching items: {}", e);
-        }
+    if let Err(e) = syncer.sync().await {
+        log::error!("Error syncing Zotero items: {}", e);
     }
 
     Ok(())
