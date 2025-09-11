@@ -26,12 +26,20 @@ impl ReqwestZoteroClient {
 
 impl ZoteroClient for ReqwestZoteroClient {
     async fn fetch_items(&self) -> Result<String, Box<dyn std::error::Error>> {
-        self.client
+        let response = self
+            .client
             .get(format!("{}{}", self.user_url, "/items?format=biblatex"))
             .send()
-            .await?
-            .text()
-            .await
-            .map_err(|e| e.into())
+            .await?;
+        match response.status() {
+            reqwest::StatusCode::OK => {
+                let text = response.text().await?;
+                Ok(text)
+            }
+            status => {
+                let err_msg = format!("Failed to fetch items: HTTP {}", status);
+                Err(err_msg.into())
+            }
+        }
     }
 }
