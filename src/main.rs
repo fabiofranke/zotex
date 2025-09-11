@@ -1,4 +1,9 @@
+mod zotero_client;
+
 use clap::Parser;
+
+use crate::zotero_client::ReqwestZoteroClient;
+use crate::zotero_client::ZoteroClient;
 
 /// Simple program to fetch Zotero items in BibLaTeX format.
 #[derive(Parser, Debug)]
@@ -21,28 +26,22 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let args = Args::parse();
-    let client = reqwest::Client::new();
 
-    let resp = client
-        .get(format!(
-            "https://api.zotero.org/users/{}/items?format=biblatex",
-            args.user_id
-        ))
-        .header("Zotero-API-Version", "3")
-        .header("Zotero-API-Key", args.api_key)
-        .send()
-        .await?;
+    let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
 
-    if resp.status() == reqwest::StatusCode::OK {
-        let body = resp.text().await?;
-        if let Some(file) = args.file {
-            std::fs::write(file, body)?;
-        } else {
-            println!("{}", body);
+    match client.fetch_items().await {
+        Ok(items) => {
+            if let Some(file) = args.file {
+                std::fs::write(file, items).unwrap();
+            } else {
+                println!("{}", items);
+            }
+            log::info!("Successfully fetched Zotero items.");
         }
-        log::info!("Successfully fetched Zotero items.");
-    } else {
-        log::error!("Received status code {}", resp.status());
+        Err(e) => {
+            log::error!("Error fetching items: {}", e);
+        }
     }
+
     Ok(())
 }
