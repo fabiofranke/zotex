@@ -1,9 +1,8 @@
 use std::time::Duration;
 
+use crate::zotero_client::ZoteroClient;
 use tokio::fs::OpenOptions;
 use tokio_util::sync::CancellationToken;
-
-use crate::zotero_client::ZoteroClient;
 
 pub struct FileSyncer<TClient: ZoteroClient> {
     client: TClient,

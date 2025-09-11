@@ -1,13 +1,11 @@
 mod file_syncer;
 mod zotero_client;
 
-use std::time::Duration;
-
-use clap::Parser;
-use tokio_util::sync::CancellationToken;
-
 use crate::file_syncer::FileSyncer;
 use crate::zotero_client::ReqwestZoteroClient;
+use clap::Parser;
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
