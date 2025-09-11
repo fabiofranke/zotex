@@ -2124,4 +2124,5 @@ dependencies = [
  "log",
  "reqwest",
  "tokio",
+ "tokio-util",
 ]

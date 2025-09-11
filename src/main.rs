@@ -1,6 +1,12 @@
-use clap::Parser;
+mod file_syncer;
+mod zotero_client;
 
-/// Simple program to fetch Zotero items in BibLaTeX format.
+use crate::file_syncer::FileSyncer;
+use crate::zotero_client::ReqwestZoteroClient;
+use clap::Parser;
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -12,37 +18,35 @@ struct Args {
     #[arg(short, long)]
     api_key: String,
 
-    /// Output file (if not provided, prints to stdout)
+    /// File that the library will be exported to
     #[arg(short, long)]
-    file: Option<String>,
+    file: String,
+
+    /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
+    #[arg(short, long)]
+    interval: Option<u64>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let args = Args::parse();
-    let client = reqwest::Client::new();
 
-    let resp = client
-        .get(format!(
-            "https://api.zotero.org/users/{}/items?format=biblatex",
-            args.user_id
-        ))
-        .header("Zotero-API-Version", "3")
-        .header("Zotero-API-Key", args.api_key)
-        .send()
-        .await?;
+    let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
+    let syncer = FileSyncer::try_new(client, args.file.clone()).await?;
 
-    if resp.status() == reqwest::StatusCode::OK {
-        let body = resp.text().await?;
-        if let Some(file) = args.file {
-            std::fs::write(file, body)?;
-        } else {
-            println!("{}", body);
+    let cancellation_token = CancellationToken::new();
+    tokio::select! {
+        result = syncer.sync(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
+            if let Err(e) = result {
+                log::error!("Error during sync: {}", e);
+            }
         }
-        log::info!("Successfully fetched Zotero items.");
-    } else {
-        log::error!("Received status code {}", resp.status());
+        _ = tokio::signal::ctrl_c() => {
+            log::info!("Signal received, cancelling...");
+            cancellation_token.cancel();
+        }
     }
+
     Ok(())
 }
