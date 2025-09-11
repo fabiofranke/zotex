@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.2] - 2025-09-11
+
 ### Changed
 - program is now self-contained - it is not required to have openssl installed anymore
 
@@ -30,7 +32,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - simple executable that fetches a zotero lib once in biblatex format
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/assert-rs/predicates-rs/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/assert-rs/predicates-rs/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/assert-rs/predicates-rs/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/fabiofranke/zotex/compare/a9179286c9c33a5113a2d0414d58a2f2854da6e5...v0.1.0
