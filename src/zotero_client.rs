@@ -1,7 +1,11 @@
 use reqwest::header;
+use tokio_util::sync::CancellationToken;
 
 pub trait ZoteroClient {
-    async fn fetch_items(&self) -> Result<String, Box<dyn std::error::Error>>;
+    async fn fetch_items(
+        &self,
+        cancellation_token: CancellationToken,
+    ) -> Result<String, Box<dyn std::error::Error>>;
 }
 
 pub struct ReqwestZoteroClient {
@@ -31,7 +35,10 @@ impl ReqwestZoteroClient {
 }
 
 impl ZoteroClient for ReqwestZoteroClient {
-    async fn fetch_items(&self) -> Result<String, Box<dyn std::error::Error>> {
+    async fn fetch_items(
+        &self,
+        cancellation_token: CancellationToken,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let request = self
             .client
             .get(format!("{}{}", self.user_url, "/items?format=biblatex"))
@@ -39,18 +46,25 @@ impl ZoteroClient for ReqwestZoteroClient {
 
         log::trace!("Sending request: {:?}", request);
 
-        let response = self.client.execute(request).await?;
-
-        log::trace!("Received response: {:?}", response);
-
-        match response.status() {
-            reqwest::StatusCode::OK => {
-                let text = response.text().await?;
-                Ok(text)
+        tokio::select! {
+            _ = cancellation_token.cancelled() => {
+                log::info!("Cancellation requested, aborting fetch_items.");
+                Err("Operation cancelled".into())
             }
-            status => {
-                let err_msg = format!("Failed to fetch items: HTTP {}", status);
-                Err(err_msg.into())
+            result = self.client.execute(request) => {
+                let response = result?;
+                log::trace!("Received response: {:?}", response);
+
+                match response.status() {
+                    reqwest::StatusCode::OK => {
+                        let text = response.text().await?;
+                        Ok(text)
+                    }
+                    status => {
+                        let err_msg = format!("Failed to fetch items: HTTP {}", status);
+                        Err(err_msg.into())
+                    }
+                }
             }
         }
     }

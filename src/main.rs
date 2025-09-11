@@ -1,7 +1,10 @@
 mod file_syncer;
 mod zotero_client;
 
+use std::time::Duration;
+
 use clap::Parser;
+use tokio_util::sync::CancellationToken;
 
 use crate::file_syncer::FileSyncer;
 use crate::zotero_client::ReqwestZoteroClient;
@@ -21,6 +24,10 @@ struct Args {
     /// File that the library will be written to.
     #[arg(short, long)]
     file: String,
+
+    /// Interval (in seconds) between syncs. If not provided, the program will run once and exit.
+    #[arg(short, long)]
+    interval: Option<u64>,
 }
 
 #[tokio::main]
@@ -31,8 +38,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
     let syncer = FileSyncer::try_new(client, args.file.clone()).await?;
 
-    if let Err(e) = syncer.sync().await {
-        log::error!("Error syncing Zotero items: {}", e);
+    let cancellation_token = CancellationToken::new();
+    tokio::select! {
+        result = syncer.sync(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
+            if let Err(e) = result {
+                log::error!("Error during sync: {}", e);
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
+            log::info!("Signal received, cancelling...");
+            cancellation_token.cancel();
+        }
     }
 
     Ok(())
