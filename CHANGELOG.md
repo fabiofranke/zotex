@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- program is now self-contained - it is not required to have openssl installed anymore
+
 ## [0.2.1] - 2025-09-11
 
 ### Added
