@@ -17,6 +17,8 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
         OpenOptions::new()
             .read(true)
             .write(true)
+            .create(true)
+            .truncate(false)
             .open(&file_path)
             .await?;
         Ok(Self { client, file_path })

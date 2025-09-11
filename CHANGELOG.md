@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- releases for multiple platforms
+
+### Fixed
+- no error if the output file does not exist yet - it will just be created
+
 ## [0.2.2] - 2025-09-11
 
 ### Changed
