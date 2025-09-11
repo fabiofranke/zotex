@@ -17,9 +17,9 @@ struct Args {
     #[arg(short, long)]
     api_key: String,
 
-    /// Output file (if not provided, prints to stdout)
+    /// File that the library will be written to.
     #[arg(short, long)]
-    file: Option<String>,
+    file: String,
 }
 
 #[tokio::main]
@@ -31,11 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match client.fetch_items().await {
         Ok(items) => {
-            if let Some(file) = args.file {
-                std::fs::write(file, items).unwrap();
-            } else {
-                println!("{}", items);
-            }
+            std::fs::write(args.file, items).unwrap();
             log::info!("Successfully fetched Zotero items.");
         }
         Err(e) => {
