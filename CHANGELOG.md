@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate  
 
+### Added
+- new argument "interval" for periodic exports
+
 ### Changed
 - made file argument obligatory
 
