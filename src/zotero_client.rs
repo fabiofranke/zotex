@@ -14,8 +14,14 @@ impl ReqwestZoteroClient {
         let mut headers = header::HeaderMap::new();
         headers.insert("Zotero-API-Version", "3".parse().unwrap());
         headers.insert("Zotero-API-Key", api_key.parse().unwrap());
+        let user_url = format!("https://api.zotero.org/users/{}", user_id);
+        log::trace!(
+            "Creating client with user URL: '{}' and default headers: {:?}",
+            user_url,
+            headers
+        );
         Self {
-            user_url: format!("https://api.zotero.org/users/{}", user_id),
+            user_url,
             client: reqwest::Client::builder()
                 .default_headers(headers)
                 .build()
@@ -26,11 +32,17 @@ impl ReqwestZoteroClient {
 
 impl ZoteroClient for ReqwestZoteroClient {
     async fn fetch_items(&self) -> Result<String, Box<dyn std::error::Error>> {
-        let response = self
+        let request = self
             .client
             .get(format!("{}{}", self.user_url, "/items?format=biblatex"))
-            .send()
-            .await?;
+            .build()?;
+
+        log::trace!("Sending request: {:?}", request);
+
+        let response = self.client.execute(request).await?;
+
+        log::trace!("Received response: {:?}", response);
+
         match response.status() {
             reqwest::StatusCode::OK => {
                 let text = response.text().await?;
