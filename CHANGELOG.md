@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- releases for multiple platforms
+
 ### Fixed
 - no error if the output file does not exist yet - it will just be created
 
