@@ -1,5 +1,5 @@
 use crate::zotero_api::types::{FetchItemsError, FetchItemsParams, FetchItemsResponse};
-use reqwest::header;
+use reqwest::header::{self, HeaderMap};
 use tokio_util::sync::CancellationToken;
 
 pub trait ZoteroClient {
@@ -17,7 +17,7 @@ pub struct ReqwestZoteroClient {
 
 impl ReqwestZoteroClient {
     pub fn new(user_id: String, api_key: String) -> Self {
-        let mut headers = header::HeaderMap::new();
+        let mut headers = HeaderMap::new();
         headers.insert("Zotero-API-Version", "3".parse().unwrap());
         headers.insert("Zotero-API-Key", api_key.parse().unwrap());
         let user_url = format!("https://api.zotero.org/users/{}", user_id);
@@ -62,6 +62,20 @@ impl ReqwestZoteroClient {
             }
         }
     }
+
+    fn try_get_next_page_url(headers: &HeaderMap) -> Option<String> {
+        headers.get(header::LINK).and_then(|link_header| {
+            let link_str = link_header.to_str().ok()?;
+            for part in link_str.split(',') {
+                let sections: Vec<&str> = part.split(';').map(|s| s.trim()).collect();
+                if sections.len() == 2 && sections[1] == r#"rel="next""# {
+                    let url = sections[0].trim_start_matches('<').trim_end_matches('>');
+                    return Some(url.to_string());
+                }
+            }
+            None
+        })
+    }
 }
 
 impl ZoteroClient for ReqwestZoteroClient {
@@ -92,5 +106,47 @@ impl ZoteroClient for ReqwestZoteroClient {
                 Self::response_to_result(response).await
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    #[rstest]
+    #[tokio::test]
+    #[case(
+        r#"<https://api.zotero.org/users/13622011/items?format=biblatex&start=25>; rel="next", <https://api.zotero.org/users/13622011/items?format=biblatex&start=50>; rel="last", <https://www.zotero.org/users/13622011/items>; rel="alternate""#,
+        "https://api.zotero.org/users/13622011/items?format=biblatex&start=25"
+    )]
+    #[case(
+        r#"<https://api.zotero.org/users/13622011/items?format=biblatex>; rel="first", <https://api.zotero.org/users/13622011/items?format=biblatex>; rel="prev", <https://api.zotero.org/users/13622011/items?format=biblatex&start=45>; rel="next", <https://api.zotero.org/users/13622011/items?format=biblatex&start=50>; rel="last", <https://www.zotero.org/users/13622011/items>; rel="alternate""#,
+        "https://api.zotero.org/users/13622011/items?format=biblatex&start=45"
+    )]
+    #[case(
+        r#"<https://api.zotero.org/users/13622011/items?format=xyz&start=100>; rel="next""#,
+        "https://api.zotero.org/users/13622011/items?format=xyz&start=100"
+    )]
+    async fn next_page_url_some(#[case] link_header: &str, #[case] expected_url: &str) {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::LINK, link_header.parse().unwrap());
+        let next_page_url = ReqwestZoteroClient::try_get_next_page_url(&headers);
+        assert_eq!(next_page_url, Some(expected_url.into()));
+    }
+
+    #[rstest]
+    #[tokio::test]
+    #[case(None)]
+    #[case(Some(r#""#))]
+    #[case(Some(r#"<https://api.zotero.org/users/13622011/items?format=biblatex>; rel="first", <https://api.zotero.org/users/13622011/items?format=biblatex&start=25>; rel="prev", <https://www.zotero.org/users/13622011/items>; rel="alternate""#))]
+    async fn next_page_url_none(#[case] link_header: Option<&str>) {
+        let mut headers = HeaderMap::new();
+        if let Some(link_header) = link_header {
+            headers.insert(header::LINK, link_header.parse().unwrap());
+        }
+        let next_page_url = ReqwestZoteroClient::try_get_next_page_url(&headers);
+        assert_eq!(next_page_url, None);
     }
 }
