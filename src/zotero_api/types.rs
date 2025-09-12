@@ -1,9 +1,18 @@
+/// Input for a request to fetch items from the Zotero API.
+pub struct FetchItemsParams {
+    /// Version of the library at the time of the last fetch.
+    pub last_modified_version: Option<u64>,
+}
+
 /// The happy path response when fetching items.
 pub enum FetchItemsResponse {
     /// No updates since last fetch.
     UpToDate,
     /// New or updated items are available.
-    Updated(String),
+    Updated {
+        last_modified_version: u64,
+        text: String,
+    },
 }
 
 /// Errors that can occur when fetching items from the Zotero API.

@@ -1,10 +1,11 @@
-use crate::zotero_api::types::{FetchItemsError, FetchItemsResponse};
+use crate::zotero_api::types::{FetchItemsError, FetchItemsParams, FetchItemsResponse};
 use reqwest::header;
 use tokio_util::sync::CancellationToken;
 
 pub trait ZoteroClient {
     async fn fetch_items(
         &self,
+        params: FetchItemsParams,
         cancellation_token: CancellationToken,
     ) -> Result<FetchItemsResponse, FetchItemsError>;
 }
@@ -33,17 +34,49 @@ impl ReqwestZoteroClient {
                 .unwrap(),
         }
     }
+
+    async fn response_to_result(
+        response: reqwest::Response,
+    ) -> Result<FetchItemsResponse, FetchItemsError> {
+        match response.status() {
+            reqwest::StatusCode::OK => {
+                let last_modified_version = response
+                    .headers()
+                    .get("Last-Modified-Version")
+                    .and_then(|hv| hv.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(0);
+                let text = response.text().await?;
+                Ok(FetchItemsResponse::Updated {
+                    last_modified_version,
+                    text,
+                })
+            }
+            reqwest::StatusCode::NOT_MODIFIED => Ok(FetchItemsResponse::UpToDate),
+            other_status => {
+                let body = response.text().await.unwrap_or_default();
+                Err(FetchItemsError::UnexpectedStatus {
+                    status: other_status,
+                    body,
+                })
+            }
+        }
+    }
 }
 
 impl ZoteroClient for ReqwestZoteroClient {
     async fn fetch_items(
         &self,
+        params: FetchItemsParams,
         cancellation_token: CancellationToken,
     ) -> Result<FetchItemsResponse, FetchItemsError> {
-        let request = self
+        let mut request_builder = self
             .client
-            .get(format!("{}{}", self.user_url, "/items?format=biblatex"))
-            .build()?;
+            .get(format!("{}{}", self.user_url, "/items?format=biblatex"));
+        if let Some(version) = params.last_modified_version {
+            request_builder = request_builder.header("If-Modified-Since-Version", version);
+        }
+        let request = request_builder.build()?;
 
         log::trace!("Sending request: {:?}", request);
 
@@ -55,20 +88,7 @@ impl ZoteroClient for ReqwestZoteroClient {
             result = self.client.execute(request) => {
                 let response = result?;
                 log::trace!("Received response: {:?}", response);
-
-                match response.status() {
-                    reqwest::StatusCode::OK => {
-                        let text = response.text().await?;
-                        Ok(FetchItemsResponse::Updated(text))
-                    },
-                    reqwest::StatusCode::NOT_MODIFIED => {
-                        Ok(FetchItemsResponse::UpToDate)
-                    },
-                    other_status => {
-                        let body = response.text().await.unwrap_or_default();
-                        Err(FetchItemsError::UnexpectedStatus { status: other_status, body })
-                    }
-                }
+                Self::response_to_result(response).await
             }
         }
     }
