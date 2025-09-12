@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::zotero_client::ZoteroClient;
+use crate::zotero_api::client::ZoteroClient;
 use tokio::fs::OpenOptions;
 use tokio_util::sync::CancellationToken;
 

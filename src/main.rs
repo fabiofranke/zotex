@@ -1,8 +1,8 @@
 mod file_syncer;
-mod zotero_client;
+mod zotero_api;
 
 use crate::file_syncer::FileSyncer;
-use crate::zotero_client::ReqwestZoteroClient;
+use crate::zotero_api::client::ReqwestZoteroClient;
 use clap::Parser;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
