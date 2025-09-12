@@ -3,6 +3,7 @@ mod zotero_api;
 
 use crate::file_syncer::FileSyncer;
 use crate::zotero_api::client::ReqwestZoteroClient;
+use anyhow::Context;
 use clap::Parser;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
@@ -28,18 +29,20 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
     let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
-    let syncer = FileSyncer::try_new(client, args.file.clone()).await?;
+    let syncer = FileSyncer::try_new(client, args.file.clone())
+        .await
+        .with_context(|| "Error during file syncer initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
 
     let cancellation_token = CancellationToken::new();
     tokio::select! {
         result = syncer.sync(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
             if let Err(e) = result {
-                log::error!("Error during sync: {}", e);
+                return Err(e).with_context(|| "Error during synchronization process.");
             }
         }
         _ = tokio::signal::ctrl_c() => {

@@ -20,7 +20,11 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
             .create(true)
             .truncate(false)
             .open(&file_path)
-            .await?;
+            .await
+            .map_err(|e| SyncError::FileError {
+                file_path: file_path.clone(),
+                io_error: e,
+            })?;
         Ok(Self { client, file_path })
     }
 
@@ -95,7 +99,12 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
                 Ok(SyncSuccess::NoChanges)
             }
             FetchItemsResponse::Updated(items) => {
-                tokio::fs::write(&self.file_path, items).await?;
+                tokio::fs::write(&self.file_path, items)
+                    .await
+                    .map_err(|e| SyncError::FileError {
+                        file_path: self.file_path.clone(),
+                        io_error: e,
+                    })?;
                 log::info!("Wrote updated items to '{}'.", &self.file_path);
                 Ok(SyncSuccess::Changes)
             }
@@ -110,8 +119,12 @@ pub enum SyncSuccess {
 
 #[derive(thiserror::Error, Debug)]
 pub enum SyncError {
-    #[error("Error with file operation: {0}")]
-    FileError(#[from] std::io::Error),
-    #[error("Error in Zotero client: {0}")]
+    #[error("Error with file '{file_path}'")]
+    FileError {
+        file_path: String,
+        #[source]
+        io_error: std::io::Error,
+    },
+    #[error("Error in Zotero client")]
     ClientError(#[from] FetchItemsError),
 }

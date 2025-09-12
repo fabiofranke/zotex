@@ -12,7 +12,7 @@ pub enum FetchItemsError {
     #[error("Network error: {0}")]
     NetworkError(#[from] reqwest::Error),
 
-    #[error("Unexpected response status: {status} with body: {body}")]
+    #[error("Unexpected response status: '{status}' with body: '{body}'")]
     UnexpectedStatus {
         status: reqwest::StatusCode,
         body: String,
