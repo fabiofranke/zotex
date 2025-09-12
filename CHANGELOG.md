@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+## [0.2.4] - 2025-09-12
+
 ### Changed
 - only re-export the library when it was changed since the last export
 - now exporting 100 items instead of 25 (pagination is not yet implemented!)
@@ -44,7 +46,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - simple executable that fetches a zotero lib once in biblatex format
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/assert-rs/predicates-rs/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/assert-rs/predicates-rs/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/assert-rs/predicates-rs/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/assert-rs/predicates-rs/compare/v0.2.0...v0.2.1
