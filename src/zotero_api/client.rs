@@ -1,3 +1,4 @@
+use crate::zotero_api::types::{FetchItemsError, FetchItemsResponse};
 use reqwest::header;
 use tokio_util::sync::CancellationToken;
 
@@ -5,7 +6,7 @@ pub trait ZoteroClient {
     async fn fetch_items(
         &self,
         cancellation_token: CancellationToken,
-    ) -> Result<String, Box<dyn std::error::Error>>;
+    ) -> Result<FetchItemsResponse, FetchItemsError>;
 }
 
 pub struct ReqwestZoteroClient {
@@ -38,7 +39,7 @@ impl ZoteroClient for ReqwestZoteroClient {
     async fn fetch_items(
         &self,
         cancellation_token: CancellationToken,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<FetchItemsResponse, FetchItemsError> {
         let request = self
             .client
             .get(format!("{}{}", self.user_url, "/items?format=biblatex"))
@@ -49,7 +50,7 @@ impl ZoteroClient for ReqwestZoteroClient {
         tokio::select! {
             _ = cancellation_token.cancelled() => {
                 log::info!("Cancellation requested, aborting fetch_items.");
-                Err("Operation cancelled".into())
+                Err(FetchItemsError::Cancelled)
             }
             result = self.client.execute(request) => {
                 let response = result?;
@@ -58,11 +59,14 @@ impl ZoteroClient for ReqwestZoteroClient {
                 match response.status() {
                     reqwest::StatusCode::OK => {
                         let text = response.text().await?;
-                        Ok(text)
-                    }
-                    status => {
-                        let err_msg = format!("Failed to fetch items: HTTP {}", status);
-                        Err(err_msg.into())
+                        Ok(FetchItemsResponse::Updated(text))
+                    },
+                    reqwest::StatusCode::NOT_MODIFIED => {
+                        Ok(FetchItemsResponse::UpToDate)
+                    },
+                    other_status => {
+                        let body = response.text().await.unwrap_or_default();
+                        Err(FetchItemsError::UnexpectedStatus { status: other_status, body })
                     }
                 }
             }

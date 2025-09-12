@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use crate::zotero_api::client::ZoteroClient;
+use crate::zotero_api::{
+    client::ZoteroClient,
+    types::{FetchItemsError, FetchItemsResponse},
+};
 use tokio::fs::OpenOptions;
 use tokio_util::sync::CancellationToken;
 
@@ -10,10 +13,7 @@ pub struct FileSyncer<TClient: ZoteroClient> {
 }
 
 impl<TClient: ZoteroClient> FileSyncer<TClient> {
-    pub async fn try_new(
-        client: TClient,
-        file_path: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn try_new(client: TClient, file_path: String) -> Result<Self, SyncError> {
         OpenOptions::new()
             .read(true)
             .write(true)
@@ -28,7 +28,7 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
         &self,
         interval: Option<Duration>,
         cancellation_token: CancellationToken,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<SyncSuccess, SyncError> {
         match interval {
             Some(duration) if (duration.as_secs() > 0) => {
                 log::info!(
@@ -48,14 +48,24 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
         &self,
         duration: Duration,
         cancellation_token: CancellationToken,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<SyncSuccess, SyncError> {
         let mut interval = tokio::time::interval(duration);
+        let mut has_changes = false;
         loop {
             tokio::select! {
                 _ = interval.tick() => {
                     log::info!("Starting scheduled sync.");
-                    if let Err(e) = self.sync_once(cancellation_token.child_token()).await {
-                        log::error!("Error during sync: {}", e);
+                    match self.sync_once(cancellation_token.child_token()).await {
+                        Ok(SyncSuccess::Changes) => {
+                            has_changes = true;
+                        }
+                        Ok(SyncSuccess::NoChanges) => {
+                            // nothing to do
+                        }
+                        Err(e) => {
+                            log::error!("Aborting periodic sync due to error: {}", e);
+                            return Err(e);
+                        }
                     }
                 }
                 _ = cancellation_token.cancelled() => {
@@ -64,17 +74,44 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
                 }
             }
         }
-        Ok(())
+        Ok(if has_changes {
+            SyncSuccess::Changes
+        } else {
+            SyncSuccess::NoChanges
+        })
     }
 
     async fn sync_once(
         &self,
         cancellation_token: CancellationToken,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let items = self.client.fetch_items(cancellation_token).await?;
-        log::trace!("Fetched items: {}", items);
-        tokio::fs::write(&self.file_path, items).await?;
-        log::info!("Successfully synced Zotero items to {}", self.file_path);
-        Ok(())
+    ) -> Result<SyncSuccess, SyncError> {
+        let response = self.client.fetch_items(cancellation_token).await?;
+        match response {
+            FetchItemsResponse::UpToDate => {
+                log::info!(
+                    "File '{}' is up to date with the Zotero library.",
+                    &self.file_path
+                );
+                Ok(SyncSuccess::NoChanges)
+            }
+            FetchItemsResponse::Updated(items) => {
+                tokio::fs::write(&self.file_path, items).await?;
+                log::info!("Wrote updated items to '{}'.", &self.file_path);
+                Ok(SyncSuccess::Changes)
+            }
+        }
     }
+}
+
+pub enum SyncSuccess {
+    Changes,
+    NoChanges,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum SyncError {
+    #[error("Error with file operation: {0}")]
+    FileError(#[from] std::io::Error),
+    #[error("Error in Zotero client: {0}")]
+    ClientError(#[from] FetchItemsError),
 }
