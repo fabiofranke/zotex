@@ -102,7 +102,7 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
         let params = FetchItemsParams {
             last_modified_version: header.map(|h| h.last_modified_version),
         };
-        let response = self.client.fetch_items(params, cancellation_token).await?;
+        let response = self.client.fetch_items(&params, cancellation_token).await?;
         match response {
             FetchItemsResponse::UpToDate => {
                 log::info!(
