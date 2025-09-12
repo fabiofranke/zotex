@@ -70,9 +70,10 @@ impl ZoteroClient for ReqwestZoteroClient {
         params: FetchItemsParams,
         cancellation_token: CancellationToken,
     ) -> Result<FetchItemsResponse, FetchItemsError> {
-        let mut request_builder = self
-            .client
-            .get(format!("{}{}", self.user_url, "/items?format=biblatex"));
+        let mut request_builder = self.client.get(format!(
+            "{}{}",
+            self.user_url, "/items?format=biblatex&limit=100"
+        ));
         if let Some(version) = params.last_modified_version {
             request_builder = request_builder.header("If-Modified-Since-Version", version);
         }

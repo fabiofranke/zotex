@@ -92,12 +92,12 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
     ) -> Result<SyncSuccess, SyncError> {
         let header = self.try_read_file_headline().await;
         if let Some(h) = &header {
-            log::debug!(
+            log::info!(
                 "Found existing export with version {}",
                 h.last_modified_version
             );
         } else {
-            log::debug!("No existing export found, performing full fetch.");
+            log::info!("No existing export found, performing full fetch.");
         }
         let params = FetchItemsParams {
             last_modified_version: header.map(|h| h.last_modified_version),
@@ -125,7 +125,11 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
                         file_path: self.file_path.clone(),
                         io_error: e,
                     })?;
-                log::info!("Wrote updated items to '{}'.", &self.file_path);
+                log::info!(
+                    "Wrote library export with version {} to file '{}'.",
+                    last_modified_version,
+                    &self.file_path
+                );
                 Ok(SyncSuccess::Changes)
             }
         }
