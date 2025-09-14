@@ -2,6 +2,7 @@ mod export;
 mod zotero_api;
 
 use crate::export::FileExporter;
+use crate::zotero_api::ExportFormat;
 use crate::zotero_api::api_key::ApiKey;
 use crate::zotero_api::builder::ZoteroClientBuilder;
 use anyhow::Context;
@@ -23,6 +24,10 @@ struct Args {
     /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
     #[arg(long)]
     interval: Option<u64>,
+
+    /// Format to be used for the export
+    #[arg(long, default_value_t, value_enum)]
+    format: ExportFormat,
 }
 
 #[tokio::main]
@@ -34,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
         .build()
         .await
         .with_context(|| "Error during Zotero client initialization.")?;
-    let exporter = FileExporter::try_new(client, args.file.clone())
+    let exporter = FileExporter::try_new(client, args.file.clone(), args.format.clone())
         .await
         .with_context(|| "Error during file exporter initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
 

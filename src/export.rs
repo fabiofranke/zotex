@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use crate::zotero_api::ExportFormat;
 use crate::zotero_api::{ApiError, FetchItemsParams, FetchItemsResponse, client::ZoteroClient};
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufReadExt;
@@ -8,10 +9,15 @@ use tokio_util::sync::CancellationToken;
 pub struct FileExporter<TClient: ZoteroClient> {
     client: TClient,
     file_path: String,
+    format: ExportFormat,
 }
 
 impl<TClient: ZoteroClient> FileExporter<TClient> {
-    pub async fn try_new(client: TClient, file_path: String) -> Result<Self, ExportError> {
+    pub async fn try_new(
+        client: TClient,
+        file_path: String,
+        format: ExportFormat,
+    ) -> Result<Self, ExportError> {
         OpenOptions::new()
             .read(true)
             .write(true)
@@ -23,7 +29,11 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                 file_path: file_path.clone(),
                 io_error: e,
             })?;
-        Ok(Self { client, file_path })
+        Ok(Self {
+            client,
+            file_path,
+            format,
+        })
     }
 
     pub async fn export(
@@ -95,6 +105,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         }
         let params = FetchItemsParams {
             last_modified_version: header.map(|h| h.last_modified_version),
+            format: self.format.clone(),
         };
         let response = self.client.fetch_items(&params).await?;
         match response {

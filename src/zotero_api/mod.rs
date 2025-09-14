@@ -1,3 +1,7 @@
+use std::fmt::Display;
+
+use serde::Serialize;
+
 pub mod api_key;
 pub mod builder;
 pub mod client;
@@ -13,8 +17,30 @@ mod headers {
 
 /// Input for a request to fetch items from the Zotero API.
 pub struct FetchItemsParams {
-    /// Version of the library at the time of the last fetch.
+    /// Version of the library at the time of the last export
     pub last_modified_version: Option<u64>,
+
+    /// Format in which the library should be exported
+    pub format: ExportFormat,
+}
+
+/// Zotero export formats supported by this tool
+#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExportFormat {
+    #[default]
+    Biblatex,
+    Bibtex,
+}
+
+impl Display for ExportFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            serde_variant::to_variant_name(self).unwrap_or_default()
+        )
+    }
 }
 
 /// The happy path response when fetching items.
@@ -39,4 +65,18 @@ pub enum ApiError {
         status: reqwest::StatusCode,
         body: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::zotero_api::ExportFormat;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(ExportFormat::Biblatex, "biblatex")]
+    #[case(ExportFormat::Bibtex, "bibtex")]
+    fn export_format_to_str(#[case] format: ExportFormat, #[case] string_representation: &str) {
+        assert_eq!(format.to_string(), string_representation);
+    }
 }
