@@ -12,10 +12,6 @@ use tokio_util::sync::CancellationToken;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Zotero User ID
-    #[arg(short, long)]
-    user_id: String,
-
     /// Zotero API Key
     #[arg(short, long)]
     api_key: String,
