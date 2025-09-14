@@ -3,7 +3,7 @@ name = "zotex"
 description = "A command-line tool to export a Zotero library to a file."
 repository = "https://github.com/fabiofranke/zotex"
 license = "MIT"
-version = "0.2.4"
+version = "0.3.0"
 edition = "2024"
 
 [dependencies]
