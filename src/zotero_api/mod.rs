@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod api_key;
 pub mod builder;
@@ -25,7 +25,7 @@ pub struct FetchItemsParams {
 }
 
 /// Zotero export formats supported by this tool
-#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
+#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExportFormat {
     #[default]
