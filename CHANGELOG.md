@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- implemented pagination - can now export library with arbitrary size
+
 ## [0.2.4] - 2025-09-12
 
 ### Changed

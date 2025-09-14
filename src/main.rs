@@ -1,7 +1,7 @@
-mod file_syncer;
+mod export;
 mod zotero_api;
 
-use crate::file_syncer::FileSyncer;
+use crate::export::FileExporter;
 use crate::zotero_api::client::ReqwestZoteroClient;
 use anyhow::Context;
 use clap::Parser;
@@ -34,15 +34,15 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
-    let syncer = FileSyncer::try_new(client, args.file.clone())
+    let exporter = FileExporter::try_new(client, args.file.clone())
         .await
-        .with_context(|| "Error during file syncer initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
+        .with_context(|| "Error during file exporter initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
 
     let cancellation_token = CancellationToken::new();
     tokio::select! {
-        result = syncer.sync(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
+        result = exporter.export(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
             if let Err(e) = result {
-                return Err(e).with_context(|| "Error during synchronization process.");
+                return Err(e).with_context(|| "Error during export process.");
             }
         }
         _ = tokio::signal::ctrl_c() => {

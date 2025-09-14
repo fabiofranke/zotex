@@ -8,13 +8,13 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufReadExt;
 use tokio_util::sync::CancellationToken;
 
-pub struct FileSyncer<TClient: ZoteroClient> {
+pub struct FileExporter<TClient: ZoteroClient> {
     client: TClient,
     file_path: String,
 }
 
-impl<TClient: ZoteroClient> FileSyncer<TClient> {
-    pub async fn try_new(client: TClient, file_path: String) -> Result<Self, SyncError> {
+impl<TClient: ZoteroClient> FileExporter<TClient> {
+    pub async fn try_new(client: TClient, file_path: String) -> Result<Self, ExportError> {
         OpenOptions::new()
             .read(true)
             .write(true)
@@ -22,74 +22,74 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
             .truncate(false)
             .open(&file_path)
             .await
-            .map_err(|e| SyncError::FileError {
+            .map_err(|e| ExportError::FileError {
                 file_path: file_path.clone(),
                 io_error: e,
             })?;
         Ok(Self { client, file_path })
     }
 
-    pub async fn sync(
+    pub async fn export(
         &self,
         interval: Option<Duration>,
         cancellation_token: CancellationToken,
-    ) -> Result<SyncSuccess, SyncError> {
+    ) -> Result<ExportSuccess, ExportError> {
         match interval {
             Some(duration) if (duration.as_secs() > 0) => {
                 log::info!(
-                    "Starting periodic sync every {} seconds.",
+                    "Starting periodic export every {} seconds.",
                     duration.as_secs()
                 );
-                self.sync_periodically(duration, cancellation_token).await
+                self.export_periodically(duration, cancellation_token).await
             }
             _ => {
-                log::info!("Starting one-time sync.");
-                self.sync_once(cancellation_token).await
+                log::info!("Starting one-time export.");
+                self.export_once(cancellation_token).await
             }
         }
     }
 
-    async fn sync_periodically(
+    async fn export_periodically(
         &self,
         duration: Duration,
         cancellation_token: CancellationToken,
-    ) -> Result<SyncSuccess, SyncError> {
+    ) -> Result<ExportSuccess, ExportError> {
         let mut interval = tokio::time::interval(duration);
         let mut has_changes = false;
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    log::info!("Starting scheduled sync.");
-                    match self.sync_once(cancellation_token.child_token()).await {
-                        Ok(SyncSuccess::Changes) => {
+                    log::info!("Starting scheduled export.");
+                    match self.export_once(cancellation_token.child_token()).await {
+                        Ok(ExportSuccess::Changes) => {
                             has_changes = true;
                         }
-                        Ok(SyncSuccess::NoChanges) => {
+                        Ok(ExportSuccess::NoChanges) => {
                             // nothing to do
                         }
                         Err(e) => {
-                            log::error!("Aborting periodic sync due to error: {}", e);
+                            log::error!("Aborting periodic export due to error: {}", e);
                             return Err(e);
                         }
                     }
                 }
                 _ = cancellation_token.cancelled() => {
-                    log::info!("Cancellation requested, stopping periodic sync.");
+                    log::info!("Cancellation requested, stopping periodic export.");
                     break;
                 }
             }
         }
         Ok(if has_changes {
-            SyncSuccess::Changes
+            ExportSuccess::Changes
         } else {
-            SyncSuccess::NoChanges
+            ExportSuccess::NoChanges
         })
     }
 
-    async fn sync_once(
+    async fn export_once(
         &self,
         cancellation_token: CancellationToken,
-    ) -> Result<SyncSuccess, SyncError> {
+    ) -> Result<ExportSuccess, ExportError> {
         let header = self.try_read_file_headline().await;
         if let Some(h) = &header {
             log::info!(
@@ -102,14 +102,14 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
         let params = FetchItemsParams {
             last_modified_version: header.map(|h| h.last_modified_version),
         };
-        let response = self.client.fetch_items(params, cancellation_token).await?;
+        let response = self.client.fetch_items(&params, cancellation_token).await?;
         match response {
             FetchItemsResponse::UpToDate => {
                 log::info!(
                     "File '{}' is up to date with the Zotero library.",
                     &self.file_path
                 );
-                Ok(SyncSuccess::NoChanges)
+                Ok(ExportSuccess::NoChanges)
             }
             FetchItemsResponse::Updated {
                 last_modified_version,
@@ -121,7 +121,7 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
                 let file_content = format!("{}\n{}", String::from(header), items);
                 tokio::fs::write(&self.file_path, file_content)
                     .await
-                    .map_err(|e| SyncError::FileError {
+                    .map_err(|e| ExportError::FileError {
                         file_path: self.file_path.clone(),
                         io_error: e,
                     })?;
@@ -130,7 +130,7 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
                     last_modified_version,
                     &self.file_path
                 );
-                Ok(SyncSuccess::Changes)
+                Ok(ExportSuccess::Changes)
             }
         }
     }
@@ -148,13 +148,13 @@ impl<TClient: ZoteroClient> FileSyncer<TClient> {
     }
 }
 
-pub enum SyncSuccess {
+pub enum ExportSuccess {
     Changes,
     NoChanges,
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum SyncError {
+pub enum ExportError {
     #[error("Error with file '{file_path}'")]
     FileError {
         file_path: String,
