@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- new argument `--format` to support multiple Zotero export formats
+
 ## [0.3.0] - 2025-09-14
 
 ### Added
 - implemented pagination - can now export library with arbitrary size
-- new argument `--format` to support multiple Zotero export formats
 
 ### Removed
 - argument `-u, --user-id` - not needed anymore, the id is now fetched with the api key
