@@ -104,7 +104,7 @@ enum FetchPageResponse {
 
 impl ZoteroClient for ReqwestZoteroClient {
     async fn fetch_items(&self, params: &FetchItemsParams) -> Result<FetchItemsResponse, ApiError> {
-        let mut next_url = Some(format!("{}{}", self.user_url, "/items?format=biblatex"));
+        let mut next_url = Some(format!("{}/items?format={}", self.user_url, params.format));
         let mut headers = HeaderMap::new();
         if let Some(version) = params.last_modified_version {
             headers.insert(headers::IF_MODIFIED_SINCE_VERSION, version.into());

@@ -1,6 +1,9 @@
 use std::time::Duration;
 
+use crate::ZOTEX_VERSION;
+use crate::zotero_api::ExportFormat;
 use crate::zotero_api::{ApiError, FetchItemsParams, FetchItemsResponse, client::ZoteroClient};
+use serde::{Deserialize, Serialize};
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufReadExt;
 use tokio_util::sync::CancellationToken;
@@ -8,10 +11,15 @@ use tokio_util::sync::CancellationToken;
 pub struct FileExporter<TClient: ZoteroClient> {
     client: TClient,
     file_path: String,
+    format: ExportFormat,
 }
 
 impl<TClient: ZoteroClient> FileExporter<TClient> {
-    pub async fn try_new(client: TClient, file_path: String) -> Result<Self, ExportError> {
+    pub async fn try_new(
+        client: TClient,
+        file_path: String,
+        format: ExportFormat,
+    ) -> Result<Self, ExportError> {
         OpenOptions::new()
             .read(true)
             .write(true)
@@ -23,7 +31,11 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                 file_path: file_path.clone(),
                 io_error: e,
             })?;
-        Ok(Self { client, file_path })
+        Ok(Self {
+            client,
+            file_path,
+            format,
+        })
     }
 
     pub async fn export(
@@ -34,13 +46,13 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         match interval {
             Some(duration) if (duration.as_secs() > 0) => {
                 log::info!(
-                    "Starting periodic export every {} seconds.",
+                    "Starting periodic export every {} seconds",
                     duration.as_secs()
                 );
                 self.export_periodically(duration, cancellation_token).await
             }
             _ => {
-                log::info!("Starting one-time export.");
+                log::info!("Starting one-time export");
                 self.export_once().await
             }
         }
@@ -56,7 +68,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    log::info!("Starting scheduled export.");
+                    log::info!("Starting scheduled export");
                     match self.export_once().await {
                         Ok(ExportSuccess::Changes) => {
                             has_changes = true;
@@ -71,7 +83,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                     }
                 }
                 _ = cancellation_token.cancelled() => {
-                    log::info!("Cancellation requested, stopping periodic export.");
+                    log::info!("Cancellation requested, stopping periodic export");
                     break;
                 }
             }
@@ -84,23 +96,32 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
     }
 
     async fn export_once(&self) -> Result<ExportSuccess, ExportError> {
-        let header = self.try_read_file_headline().await;
-        if let Some(h) = &header {
+        let metadata = self.try_read_file_metadata().await;
+        let mut existing_export_version = None;
+        if let Some(meta) = &metadata {
             log::info!(
-                "Found existing export with version {}",
-                h.last_modified_version
+                "Found existing export with metadata: {}",
+                serde_json::to_string(&meta).unwrap_or_default()
             );
+            if meta.matches_format(&self.format) {
+                existing_export_version = Some(meta.library_version);
+            } else {
+                log::info!(
+                    "Existing export has a different format or zotex version, performing new export now"
+                );
+            }
         } else {
-            log::info!("No existing export found, performing full fetch.");
+            log::info!("No existing export found, performing new export now");
         }
         let params = FetchItemsParams {
-            last_modified_version: header.map(|h| h.last_modified_version),
+            last_modified_version: existing_export_version,
+            format: self.format.clone(),
         };
         let response = self.client.fetch_items(&params).await?;
         match response {
             FetchItemsResponse::UpToDate => {
                 log::info!(
-                    "File '{}' is up to date with the Zotero library.",
+                    "File '{}' is up to date with the Zotero library",
                     &self.file_path
                 );
                 Ok(ExportSuccess::NoChanges)
@@ -109,8 +130,10 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                 last_modified_version,
                 text: items,
             } => {
-                let header = FileHeadline {
-                    last_modified_version,
+                let header = FileMetadata {
+                    zotex_version: ZOTEX_VERSION.to_owned(),
+                    library_version: last_modified_version,
+                    format: self.format.clone(),
                 };
                 let file_content = format!("{}\n{}", String::from(header), items);
                 tokio::fs::write(&self.file_path, file_content)
@@ -120,7 +143,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                         io_error: e,
                     })?;
                 log::info!(
-                    "Wrote library export with version {} to file '{}'.",
+                    "Wrote library export with version {} to file '{}'",
                     last_modified_version,
                     &self.file_path
                 );
@@ -129,7 +152,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         }
     }
 
-    async fn try_read_file_headline(&self) -> Option<FileHeadline> {
+    async fn try_read_file_metadata(&self) -> Option<FileMetadata> {
         let file = OpenOptions::new()
             .read(true)
             .open(&self.file_path)
@@ -138,7 +161,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         let mut reader = tokio::io::BufReader::new(file);
         let mut first_line = String::new();
         reader.read_line(&mut first_line).await.ok()?;
-        FileHeadline::try_from(first_line.trim()).ok()
+        FileMetadata::try_from(first_line.trim()).ok()
     }
 }
 
@@ -159,42 +182,40 @@ pub enum ExportError {
     ClientError(#[from] ApiError),
 }
 
-struct FileHeadline {
-    last_modified_version: u64,
+#[derive(Serialize, Deserialize, Debug)]
+struct FileMetadata {
+    zotex_version: String,
+    library_version: u64,
+    format: ExportFormat,
 }
 
-impl FileHeadline {
+impl FileMetadata {
     const PREFIX: &'static str = "% *** THIS FILE WAS AUTO-GENERATED BY ZOTEX - DO NOT EDIT ***";
-    const VERSION_PREFIX: &'static str = "Last-Modified-Version: ";
+
+    fn matches_format(&self, format: &ExportFormat) -> bool {
+        (format == &self.format) && (ZOTEX_VERSION == self.zotex_version)
+    }
 }
 
-impl From<FileHeadline> for String {
-    fn from(headline: FileHeadline) -> Self {
+impl From<FileMetadata> for String {
+    fn from(headline: FileMetadata) -> Self {
         format!(
-            "{}{}{}",
-            FileHeadline::PREFIX,
-            FileHeadline::VERSION_PREFIX,
-            headline.last_modified_version
+            "{} {}",
+            FileMetadata::PREFIX,
+            serde_json::to_string(&headline).unwrap_or_default()
         )
     }
 }
 
-impl TryFrom<&str> for FileHeadline {
+impl TryFrom<&str> for FileMetadata {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if !value.starts_with(Self::PREFIX) {
             return Err(());
         }
-        let version_part = value.trim_start_matches(Self::PREFIX).trim();
-        if !version_part.starts_with(Self::VERSION_PREFIX) {
-            return Err(());
-        }
-        let version_str = version_part.trim_start_matches(Self::VERSION_PREFIX).trim();
-        let last_modified_version = version_str.parse::<u64>().map_err(|_| ())?;
-        Ok(Self {
-            last_modified_version,
-        })
+        let without_prefix = value.trim_start_matches(Self::PREFIX).trim();
+        serde_json::from_str(without_prefix).map_err(|_| ())
     }
 }
 
@@ -204,14 +225,16 @@ mod tests {
 
     #[test]
     fn test_file_headline_string_conversion() {
-        let headline = FileHeadline {
-            last_modified_version: 12345,
+        let headline = FileMetadata {
+            zotex_version: "0.1.0".to_owned(),
+            library_version: 12345,
+            format: Default::default(),
         };
         let headline_str: String = headline.into();
 
-        let parsed_headline = FileHeadline::try_from(headline_str.as_str());
+        let parsed_headline = FileMetadata::try_from(headline_str.as_str());
         assert!(parsed_headline.is_ok());
         let parsed_headline = parsed_headline.unwrap();
-        assert_eq!(parsed_headline.last_modified_version, 12345);
+        assert_eq!(parsed_headline.library_version, 12345);
     }
 }
