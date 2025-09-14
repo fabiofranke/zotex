@@ -12,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Zotero API Key
+    /// Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new
     #[arg(short, long)]
     api_key: String,
 
