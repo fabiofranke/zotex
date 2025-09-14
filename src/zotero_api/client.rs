@@ -1,7 +1,4 @@
-use crate::zotero_api::{
-    headers,
-    types::{ApiError, FetchItemsParams, FetchItemsResponse},
-};
+use crate::zotero_api::{ApiError, FetchItemsParams, FetchItemsResponse, headers};
 use reqwest::header::{self, HeaderMap};
 
 pub trait ZoteroClient {

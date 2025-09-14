@@ -1,11 +1,10 @@
 use reqwest::{StatusCode, header::HeaderMap};
 
 use crate::zotero_api::{
-    API_BASE_URL,
+    API_BASE_URL, ApiError,
     api_key::{ApiKey, ApiKeyError, ApiKeyInfo},
     client::ReqwestZoteroClient,
     headers,
-    types::ApiError,
 };
 
 pub struct ZoteroClientBuilder {

@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use crate::zotero_api::{
-    client::ZoteroClient,
-    types::{ApiError, FetchItemsParams, FetchItemsResponse},
-};
+use crate::zotero_api::{ApiError, FetchItemsParams, FetchItemsResponse, client::ZoteroClient};
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufReadExt;
 use tokio_util::sync::CancellationToken;
