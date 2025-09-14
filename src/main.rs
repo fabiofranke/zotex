@@ -10,6 +10,8 @@ use clap::Parser;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
+const ZOTEX_VERSION: &str = clap::crate_version!();
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {

@@ -25,7 +25,7 @@ pub struct FetchItemsParams {
 }
 
 /// Zotero export formats supported by this tool
-#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExportFormat {
     #[default]
