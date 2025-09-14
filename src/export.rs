@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::zotero_api::{
     client::ZoteroClient,
-    types::{FetchItemsError, FetchItemsParams, FetchItemsResponse},
+    types::{ApiError, FetchItemsParams, FetchItemsResponse},
 };
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufReadExt;
@@ -162,7 +162,7 @@ pub enum ExportError {
         io_error: std::io::Error,
     },
     #[error("Error in Zotero client")]
-    ClientError(#[from] FetchItemsError),
+    ClientError(#[from] ApiError),
 }
 
 struct FileHeadline {

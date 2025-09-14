@@ -2,7 +2,8 @@ mod export;
 mod zotero_api;
 
 use crate::export::FileExporter;
-use crate::zotero_api::client::ReqwestZoteroClient;
+use crate::zotero_api::api_key::ApiKey;
+use crate::zotero_api::builder::ZoteroClientBuilder;
 use anyhow::Context;
 use clap::Parser;
 use std::time::Duration;
@@ -33,7 +34,10 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
+    let client = ZoteroClientBuilder::new(ApiKey(args.api_key))
+        .build()
+        .await
+        .with_context(|| "Error during Zotero client initialization.")?;
     let exporter = FileExporter::try_new(client, args.file.clone())
         .await
         .with_context(|| "Error during file exporter initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;

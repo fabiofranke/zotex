@@ -1,4 +1,4 @@
-use crate::zotero_api::types::{FetchItemsError, FetchItemsParams, FetchItemsResponse};
+use crate::zotero_api::types::{ApiError, FetchItemsParams, FetchItemsResponse};
 use reqwest::header::{self, HeaderMap};
 use tokio_util::sync::CancellationToken;
 
@@ -7,31 +7,19 @@ pub trait ZoteroClient {
         &self,
         params: &FetchItemsParams,
         cancellation_token: CancellationToken,
-    ) -> Result<FetchItemsResponse, FetchItemsError>;
+    ) -> Result<FetchItemsResponse, ApiError>;
 }
 
 pub struct ReqwestZoteroClient {
+    http_client: reqwest::Client,
     user_url: String,
-    client: reqwest::Client,
 }
 
 impl ReqwestZoteroClient {
-    pub fn new(user_id: String, api_key: String) -> Self {
-        let mut headers = HeaderMap::new();
-        headers.insert("Zotero-API-Version", "3".parse().unwrap());
-        headers.insert("Zotero-API-Key", api_key.parse().unwrap());
-        let user_url = format!("https://api.zotero.org/users/{}", user_id);
-        log::trace!(
-            "Creating client with user URL: '{}' and default headers: {:?}",
-            user_url,
-            headers
-        );
+    pub(in crate::zotero_api) fn new(http_client: reqwest::Client, user_url: String) -> Self {
         Self {
             user_url,
-            client: reqwest::Client::builder()
-                .default_headers(headers)
-                .build()
-                .unwrap(),
+            http_client,
         }
     }
 
@@ -40,17 +28,17 @@ impl ReqwestZoteroClient {
         url: &str,
         headers: &HeaderMap,
         cancellation_token: CancellationToken,
-    ) -> Result<FetchPageResponse, FetchItemsError> {
-        let request = self.client.get(url).headers(headers.clone()).build()?;
+    ) -> Result<FetchPageResponse, ApiError> {
+        let request = self.http_client.get(url).headers(headers.clone()).build()?;
 
         Self::log_request(&request);
 
         tokio::select! {
             _ = cancellation_token.cancelled() => {
                 log::info!("Cancellation requested, aborting fetch_page.");
-                Err(FetchItemsError::Cancelled)
+                Err(ApiError::Cancelled)
             }
-            request_result = self.client.execute(request) => {
+            request_result = self.http_client.execute(request) => {
                 let response = request_result?;
                 Self::log_response(&response);
                 Self::parse_zotero_page_response(response).await
@@ -78,7 +66,7 @@ impl ReqwestZoteroClient {
 
     async fn parse_zotero_page_response(
         response: reqwest::Response,
-    ) -> Result<FetchPageResponse, FetchItemsError> {
+    ) -> Result<FetchPageResponse, ApiError> {
         match response.status() {
             reqwest::StatusCode::OK => {
                 let last_modified_version = response
@@ -98,7 +86,7 @@ impl ReqwestZoteroClient {
             reqwest::StatusCode::NOT_MODIFIED => Ok(FetchPageResponse::UpToDate),
             other_status => {
                 let body = response.text().await.unwrap_or_default();
-                Err(FetchItemsError::UnexpectedStatus {
+                Err(ApiError::UnexpectedStatus {
                     status: other_status,
                     body,
                 })
@@ -135,7 +123,7 @@ impl ZoteroClient for ReqwestZoteroClient {
         &self,
         params: &FetchItemsParams,
         cancellation_token: CancellationToken,
-    ) -> Result<FetchItemsResponse, FetchItemsError> {
+    ) -> Result<FetchItemsResponse, ApiError> {
         let mut next_url = Some(format!("{}{}", self.user_url, "/items?format=biblatex"));
         let mut headers = HeaderMap::new();
         if let Some(version) = params.last_modified_version {
@@ -148,7 +136,7 @@ impl ZoteroClient for ReqwestZoteroClient {
             tokio::select! {
                 _ = cancellation_token.cancelled() => {
                     log::info!("Cancellation requested, aborting fetch_items.");
-                    return Err(FetchItemsError::Cancelled);
+                    return Err(ApiError::Cancelled);
                 }
                 page_result = self.fetch_page(&url, &headers, cancellation_token.child_token()) => {
                     match page_result {

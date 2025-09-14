@@ -15,11 +15,11 @@ pub enum FetchItemsResponse {
     },
 }
 
-/// Errors that can occur when fetching items from the Zotero API.
+/// Errors that can occur when interacting with the Zotero API.
 #[derive(thiserror::Error, Debug)]
-pub enum FetchItemsError {
-    #[error("Network error: {0}")]
-    NetworkError(#[from] reqwest::Error),
+pub enum ApiError {
+    #[error("HTTP error")]
+    HttpError(#[from] reqwest::Error),
 
     #[error("Unexpected response status: '{status}' with body: '{body}'")]
     UnexpectedStatus {
