@@ -46,13 +46,13 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         match interval {
             Some(duration) if (duration.as_secs() > 0) => {
                 log::info!(
-                    "Starting periodic export every {} seconds.",
+                    "Starting periodic export every {} seconds",
                     duration.as_secs()
                 );
                 self.export_periodically(duration, cancellation_token).await
             }
             _ => {
-                log::info!("Starting one-time export.");
+                log::info!("Starting one-time export");
                 self.export_once().await
             }
         }
@@ -68,7 +68,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    log::info!("Starting scheduled export.");
+                    log::info!("Starting scheduled export");
                     match self.export_once().await {
                         Ok(ExportSuccess::Changes) => {
                             has_changes = true;
@@ -83,7 +83,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                     }
                 }
                 _ = cancellation_token.cancelled() => {
-                    log::info!("Cancellation requested, stopping periodic export.");
+                    log::info!("Cancellation requested, stopping periodic export");
                     break;
                 }
             }
@@ -99,16 +99,19 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         let metadata = self.try_read_file_metadata().await;
         let mut existing_export_version = None;
         if let Some(meta) = &metadata {
-            log::info!("Found existing export with metadata {:?}", meta);
+            log::info!(
+                "Found existing export with metadata: {}",
+                serde_json::to_string(&meta).unwrap_or_default()
+            );
             if meta.matches_format(&self.format) {
                 existing_export_version = Some(meta.library_version);
             } else {
                 log::info!(
-                    "Existing export has a different format or zotex version, performing new export now."
+                    "Existing export has a different format or zotex version, performing new export now"
                 );
             }
         } else {
-            log::info!("No existing export found, performing new export now.");
+            log::info!("No existing export found, performing new export now");
         }
         let params = FetchItemsParams {
             last_modified_version: existing_export_version,
@@ -118,7 +121,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         match response {
             FetchItemsResponse::UpToDate => {
                 log::info!(
-                    "File '{}' is up to date with the Zotero library.",
+                    "File '{}' is up to date with the Zotero library",
                     &self.file_path
                 );
                 Ok(ExportSuccess::NoChanges)
@@ -140,7 +143,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
                         io_error: e,
                     })?;
                 log::info!(
-                    "Wrote library export with version {} to file '{}'.",
+                    "Wrote library export with version {} to file '{}'",
                     last_modified_version,
                     &self.file_path
                 );
