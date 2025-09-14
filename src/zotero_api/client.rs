@@ -43,7 +43,7 @@ impl ReqwestZoteroClient {
     ) -> Result<FetchPageResponse, FetchItemsError> {
         let request = self.client.get(url).headers(headers.clone()).build()?;
 
-        log::trace!("Sending request: {:?}", request);
+        Self::log_request(&request);
 
         tokio::select! {
             _ = cancellation_token.cancelled() => {
@@ -52,10 +52,28 @@ impl ReqwestZoteroClient {
             }
             request_result = self.client.execute(request) => {
                 let response = request_result?;
-                log::trace!("Received response: {:?}", response);
+                Self::log_response(&response);
                 Self::parse_zotero_page_response(response).await
             }
         }
+    }
+
+    fn log_request(request: &reqwest::Request) {
+        log::trace!(
+            "Sending request: {} {}\nHeaders: {:?}",
+            request.method(),
+            request.url(),
+            request.headers()
+        );
+    }
+
+    fn log_response(response: &reqwest::Response) {
+        log::trace!(
+            "Received response: {} {}\nHeaders: {:?}",
+            response.status(),
+            response.url(),
+            response.headers()
+        );
     }
 
     async fn parse_zotero_page_response(
