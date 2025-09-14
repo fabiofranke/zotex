@@ -26,7 +26,4 @@ pub enum ApiError {
         status: reqwest::StatusCode,
         body: String,
     },
-
-    #[error("Operation was cancelled")]
-    Cancelled,
 }

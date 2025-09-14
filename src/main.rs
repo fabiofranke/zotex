@@ -39,17 +39,19 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| "Error during file exporter initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
 
     let cancellation_token = CancellationToken::new();
-    tokio::select! {
-        result = exporter.export(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
-            if let Err(e) = result {
-                return Err(e).with_context(|| "Error during export process.");
-            }
-        }
-        _ = tokio::signal::ctrl_c() => {
-            log::info!("Signal received, cancelling...");
-            cancellation_token.cancel();
-        }
-    }
+    let child_token = cancellation_token.child_token();
 
-    Ok(())
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to listen for signal");
+        log::info!("Signal received, cancelling...");
+        cancellation_token.cancel();
+    });
+
+    exporter
+        .export(args.interval.map(Duration::from_secs), child_token)
+        .await
+        .map(|_| ())
+        .with_context(|| "Error during export process.")
 }

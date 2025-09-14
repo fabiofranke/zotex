@@ -44,7 +44,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
             }
             _ => {
                 log::info!("Starting one-time export.");
-                self.export_once(cancellation_token).await
+                self.export_once().await
             }
         }
     }
@@ -60,7 +60,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
             tokio::select! {
                 _ = interval.tick() => {
                     log::info!("Starting scheduled export.");
-                    match self.export_once(cancellation_token.child_token()).await {
+                    match self.export_once().await {
                         Ok(ExportSuccess::Changes) => {
                             has_changes = true;
                         }
@@ -86,10 +86,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         })
     }
 
-    async fn export_once(
-        &self,
-        cancellation_token: CancellationToken,
-    ) -> Result<ExportSuccess, ExportError> {
+    async fn export_once(&self) -> Result<ExportSuccess, ExportError> {
         let header = self.try_read_file_headline().await;
         if let Some(h) = &header {
             log::info!(
@@ -102,7 +99,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         let params = FetchItemsParams {
             last_modified_version: header.map(|h| h.last_modified_version),
         };
-        let response = self.client.fetch_items(&params, cancellation_token).await?;
+        let response = self.client.fetch_items(&params).await?;
         match response {
             FetchItemsResponse::UpToDate => {
                 log::info!(

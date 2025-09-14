@@ -3,14 +3,9 @@ use crate::zotero_api::{
     types::{ApiError, FetchItemsParams, FetchItemsResponse},
 };
 use reqwest::header::{self, HeaderMap};
-use tokio_util::sync::CancellationToken;
 
 pub trait ZoteroClient {
-    async fn fetch_items(
-        &self,
-        params: &FetchItemsParams,
-        cancellation_token: CancellationToken,
-    ) -> Result<FetchItemsResponse, ApiError>;
+    async fn fetch_items(&self, params: &FetchItemsParams) -> Result<FetchItemsResponse, ApiError>;
 }
 
 pub struct ReqwestZoteroClient {
@@ -30,23 +25,12 @@ impl ReqwestZoteroClient {
         &self,
         url: &str,
         headers: &HeaderMap,
-        cancellation_token: CancellationToken,
     ) -> Result<FetchPageResponse, ApiError> {
         let request = self.http_client.get(url).headers(headers.clone()).build()?;
-
         Self::log_request(&request);
-
-        tokio::select! {
-            _ = cancellation_token.cancelled() => {
-                log::info!("Cancellation requested, aborting fetch_page.");
-                Err(ApiError::Cancelled)
-            }
-            request_result = self.http_client.execute(request) => {
-                let response = request_result?;
-                Self::log_response(&response);
-                Self::parse_zotero_page_response(response).await
-            }
-        }
+        let response = self.http_client.execute(request).await?;
+        Self::log_response(&response);
+        Self::parse_zotero_page_response(response).await
     }
 
     fn log_request(request: &reqwest::Request) {
@@ -122,47 +106,42 @@ enum FetchPageResponse {
 }
 
 impl ZoteroClient for ReqwestZoteroClient {
-    async fn fetch_items(
-        &self,
-        params: &FetchItemsParams,
-        cancellation_token: CancellationToken,
-    ) -> Result<FetchItemsResponse, ApiError> {
+    async fn fetch_items(&self, params: &FetchItemsParams) -> Result<FetchItemsResponse, ApiError> {
         let mut next_url = Some(format!("{}{}", self.user_url, "/items?format=biblatex"));
         let mut headers = HeaderMap::new();
         if let Some(version) = params.last_modified_version {
             headers.insert(headers::IF_MODIFIED_SINCE_VERSION, version.into());
         }
-
         let mut result = Ok(FetchItemsResponse::UpToDate);
 
         while let Some(url) = next_url {
-            tokio::select! {
-                _ = cancellation_token.cancelled() => {
-                    log::info!("Cancellation requested, aborting fetch_items.");
-                    return Err(ApiError::Cancelled);
-                }
-                page_result = self.fetch_page(&url, &headers, cancellation_token.child_token()) => {
-                    match page_result {
-                        Ok(FetchPageResponse::Updated { last_modified_version, text, next_page_url }) => {
-                            if let Ok(FetchItemsResponse::Updated { text: existing_text, .. }) = &mut result {
-                                existing_text.push_str(&text);
-                            } else {
-                                result = Ok(FetchItemsResponse::Updated {
-                                    last_modified_version,
-                                    text,
-                                });
-                            }
-                            next_url = next_page_url;
-                        }
-                        Ok(FetchPageResponse::UpToDate) => {
-                            result = Ok(FetchItemsResponse::UpToDate);
-                            next_url = None;
-                        }
-                        Err(e) => {
-                            result = Err(e);
-                            next_url = None;
-                        }
+            match self.fetch_page(&url, &headers).await {
+                Ok(FetchPageResponse::Updated {
+                    last_modified_version,
+                    text,
+                    next_page_url,
+                }) => {
+                    if let Ok(FetchItemsResponse::Updated {
+                        text: existing_text,
+                        ..
+                    }) = &mut result
+                    {
+                        existing_text.push_str(&text);
+                    } else {
+                        result = Ok(FetchItemsResponse::Updated {
+                            last_modified_version,
+                            text,
+                        });
                     }
+                    next_url = next_page_url;
+                }
+                Ok(FetchPageResponse::UpToDate) => {
+                    result = Ok(FetchItemsResponse::UpToDate);
+                    next_url = None;
+                }
+                Err(e) => {
+                    result = Err(e);
+                    next_url = None;
                 }
             }
         }
