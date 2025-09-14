@@ -118,10 +118,7 @@ impl ZoteroClient for ReqwestZoteroClient {
         params: &FetchItemsParams,
         cancellation_token: CancellationToken,
     ) -> Result<FetchItemsResponse, FetchItemsError> {
-        let mut next_url = Some(format!(
-            "{}{}",
-            self.user_url, "/items?format=biblatex&limit=25"
-        ));
+        let mut next_url = Some(format!("{}{}", self.user_url, "/items?format=biblatex"));
         let mut headers = HeaderMap::new();
         if let Some(version) = params.last_modified_version {
             headers.insert("If-Modified-Since-Version", version.into());
