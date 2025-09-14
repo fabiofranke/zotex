@@ -4,6 +4,7 @@ use crate::zotero_api::{
     API_BASE_URL,
     api_key::{ApiKey, ApiKeyError, ApiKeyInfo},
     client::ReqwestZoteroClient,
+    headers,
     types::ApiError,
 };
 
@@ -14,8 +15,8 @@ pub struct ZoteroClientBuilder {
 impl ZoteroClientBuilder {
     pub fn new(api_key: ApiKey) -> Self {
         let mut headers = HeaderMap::new();
-        headers.insert("Zotero-API-Version", "3".parse().unwrap());
-        headers.insert("Zotero-API-Key", api_key.0.parse().unwrap());
+        headers.insert(headers::ZOTERO_API_VERSION, "3".parse().unwrap());
+        headers.insert(headers::ZOTERO_API_KEY, api_key.0.parse().unwrap());
         log::debug!("Default http headers: {:?}", headers);
         let http_client = reqwest::Client::builder()
             .default_headers(headers)

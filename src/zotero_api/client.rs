@@ -1,4 +1,7 @@
-use crate::zotero_api::types::{ApiError, FetchItemsParams, FetchItemsResponse};
+use crate::zotero_api::{
+    headers,
+    types::{ApiError, FetchItemsParams, FetchItemsResponse},
+};
 use reqwest::header::{self, HeaderMap};
 use tokio_util::sync::CancellationToken;
 
@@ -71,7 +74,7 @@ impl ReqwestZoteroClient {
             reqwest::StatusCode::OK => {
                 let last_modified_version = response
                     .headers()
-                    .get("Last-Modified-Version")
+                    .get(headers::LAST_MODIFIED_VERSION)
                     .and_then(|hv| hv.to_str().ok())
                     .and_then(|s| s.parse::<u64>().ok())
                     .unwrap_or(0);
@@ -127,7 +130,7 @@ impl ZoteroClient for ReqwestZoteroClient {
         let mut next_url = Some(format!("{}{}", self.user_url, "/items?format=biblatex"));
         let mut headers = HeaderMap::new();
         if let Some(version) = params.last_modified_version {
-            headers.insert("If-Modified-Since-Version", version.into());
+            headers.insert(headers::IF_MODIFIED_SINCE_VERSION, version.into());
         }
 
         let mut result = Ok(FetchItemsResponse::UpToDate);
