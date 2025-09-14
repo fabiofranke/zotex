@@ -13,6 +13,7 @@ Options:
       --api-key <API_KEY>    Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new
       --file <FILE>          File that the library will be exported to
       --interval <INTERVAL>  Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
+      --format <FORMAT>      Format to be used for the export [default: biblatex] [possible values: biblatex, bibtex]
   -h, --help                 Print help
   -V, --version              Print version
 ```
