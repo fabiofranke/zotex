@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - implemented pagination - can now export library with arbitrary size
 
+### Removed
+- argument `-u, --user-id` - not needed anymore, the id is now fetched with the api key
+- the short versions for all arguments: `-a, -f, -i` - for better readability, only long versions are supported
+
 ## [0.2.4] - 2025-09-12
 
 ### Changed

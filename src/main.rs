@@ -2,7 +2,8 @@ mod export;
 mod zotero_api;
 
 use crate::export::FileExporter;
-use crate::zotero_api::client::ReqwestZoteroClient;
+use crate::zotero_api::api_key::ApiKey;
+use crate::zotero_api::builder::ZoteroClientBuilder;
 use anyhow::Context;
 use clap::Parser;
 use std::time::Duration;
@@ -11,20 +12,16 @@ use tokio_util::sync::CancellationToken;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Zotero User ID
-    #[arg(short, long)]
-    user_id: String,
-
-    /// Zotero API Key
-    #[arg(short, long)]
+    /// Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new
+    #[arg(long)]
     api_key: String,
 
     /// File that the library will be exported to
-    #[arg(short, long)]
+    #[arg(long)]
     file: String,
 
     /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
-    #[arg(short, long)]
+    #[arg(long)]
     interval: Option<u64>,
 }
 
@@ -33,23 +30,28 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    let client = ReqwestZoteroClient::new(args.user_id, args.api_key);
+    let client = ZoteroClientBuilder::new(ApiKey(args.api_key))
+        .build()
+        .await
+        .with_context(|| "Error during Zotero client initialization.")?;
     let exporter = FileExporter::try_new(client, args.file.clone())
         .await
         .with_context(|| "Error during file exporter initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
 
     let cancellation_token = CancellationToken::new();
-    tokio::select! {
-        result = exporter.export(args.interval.map(Duration::from_secs), cancellation_token.child_token()) => {
-            if let Err(e) = result {
-                return Err(e).with_context(|| "Error during export process.");
-            }
-        }
-        _ = tokio::signal::ctrl_c() => {
-            log::info!("Signal received, cancelling...");
-            cancellation_token.cancel();
-        }
-    }
+    let child_token = cancellation_token.child_token();
 
-    Ok(())
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to listen for signal");
+        log::info!("Signal received, cancelling...");
+        cancellation_token.cancel();
+    });
+
+    exporter
+        .export(args.interval.map(Duration::from_secs), child_token)
+        .await
+        .map(|_| ())
+        .with_context(|| "Error during export process.")
 }
