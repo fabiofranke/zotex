@@ -13,15 +13,15 @@ use tokio_util::sync::CancellationToken;
 #[command(version, about, long_about = None)]
 struct Args {
     /// Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new
-    #[arg(short, long)]
+    #[arg(long)]
     api_key: String,
 
     /// File that the library will be exported to
-    #[arg(short, long)]
+    #[arg(long)]
     file: String,
 
     /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
-    #[arg(short, long)]
+    #[arg(long)]
     interval: Option<u64>,
 }
 
