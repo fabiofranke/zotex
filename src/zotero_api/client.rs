@@ -38,14 +38,10 @@ impl ReqwestZoteroClient {
     async fn fetch_page(
         &self,
         url: &str,
-        params: &FetchItemsParams,
+        headers: &HeaderMap,
         cancellation_token: CancellationToken,
     ) -> Result<FetchPageResponse, FetchItemsError> {
-        let mut request_builder = self.client.get(url);
-        if let Some(version) = params.last_modified_version {
-            request_builder = request_builder.header("If-Modified-Since-Version", version);
-        }
-        let request = request_builder.build()?;
+        let request = self.client.get(url).headers(headers.clone()).build()?;
 
         log::trace!("Sending request: {:?}", request);
 
@@ -126,6 +122,10 @@ impl ZoteroClient for ReqwestZoteroClient {
             "{}{}",
             self.user_url, "/items?format=biblatex&limit=25"
         ));
+        let mut headers = HeaderMap::new();
+        if let Some(version) = params.last_modified_version {
+            headers.insert("If-Modified-Since-Version", version.into());
+        }
 
         let mut result = Ok(FetchItemsResponse::UpToDate);
 
@@ -135,7 +135,7 @@ impl ZoteroClient for ReqwestZoteroClient {
                     log::info!("Cancellation requested, aborting fetch_items.");
                     return Err(FetchItemsError::Cancelled);
                 }
-                page_result = self.fetch_page(&url, params, cancellation_token.child_token()) => {
+                page_result = self.fetch_page(&url, &headers, cancellation_token.child_token()) => {
                     match page_result {
                         Ok(FetchPageResponse::Updated { last_modified_version, text, next_page_url }) => {
                             if let Ok(FetchItemsResponse::Updated { text: existing_text, .. }) = &mut result {
@@ -160,7 +160,6 @@ impl ZoteroClient for ReqwestZoteroClient {
                 }
             }
         }
-
         result
     }
 }
