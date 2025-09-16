@@ -1,13 +1,13 @@
-# zotex
+# zotexon
 Headless tool to export a Zotero library, using only the web api.
 
 ## CLI Arguments
 <!-- cli-help-start -->
 ```console
-$ zotex --help
+$ zotexon --help
 A command-line tool to export a Zotero library to a file.
 
-Usage: zotex [OPTIONS] --api-key <API_KEY> --file <FILE>
+Usage: zotexon [OPTIONS] --api-key <API_KEY> --file <FILE>
 
 Options:
       --api-key <API_KEY>    Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new

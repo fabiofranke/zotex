@@ -9,7 +9,7 @@ echo "----------------------------------------"
 
 # Markdown-formatted block
 BLOCK="\`\`\`console
-\$ zotex --help
+\$ zotexon --help
 $HELP_OUTPUT
 \`\`\`"
 
