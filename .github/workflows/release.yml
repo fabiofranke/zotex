@@ -45,6 +45,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: zotex
+          bin: zotexon
           target: ${{ matrix.platform.target }}
           token: ${{ secrets.GITHUB_TOKEN }}
