@@ -60,3 +60,29 @@ async fn trigger_periodically(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio_util::sync::CancellationToken;
+
+    use crate::export::ExportTrigger;
+
+    #[tokio::test]
+    async fn trigger_none() {
+        let mut trigger = ExportTrigger::none();
+        assert!(trigger.next().await.is_none())
+    }
+
+    #[tokio::test]
+    async fn trigger_periodic() {
+        let cancellation_token = CancellationToken::new();
+        let mut trigger =
+            ExportTrigger::periodic(Duration::from_millis(1), cancellation_token.clone());
+        assert!(trigger.next().await.is_some());
+        assert!(trigger.next().await.is_some());
+        cancellation_token.cancel();
+        assert!(trigger.next().await.is_none());
+    }
+}
