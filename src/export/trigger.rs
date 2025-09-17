@@ -1,5 +1,4 @@
 use std::time::Duration;
-
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -63,11 +62,9 @@ async fn trigger_periodically(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use tokio_util::sync::CancellationToken;
-
     use crate::export::ExportTrigger;
+    use std::time::Duration;
+    use tokio_util::sync::CancellationToken;
 
     #[tokio::test]
     async fn trigger_none() {
