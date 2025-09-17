@@ -1,17 +1,16 @@
-use std::time::Duration;
-
 use crate::ZOTEXON_VERSION;
+use crate::export::ExportTrigger;
 use crate::zotero_api::ExportFormat;
 use crate::zotero_api::{ApiError, FetchItemsParams, FetchItemsResponse, client::ZoteroClient};
 use serde::{Deserialize, Serialize};
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufReadExt;
-use tokio_util::sync::CancellationToken;
 
 pub struct FileExporter<TClient: ZoteroClient> {
     client: TClient,
     file_path: String,
     format: ExportFormat,
+    trigger: ExportTrigger,
 }
 
 impl<TClient: ZoteroClient> FileExporter<TClient> {
@@ -19,6 +18,7 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
         client: TClient,
         file_path: String,
         format: ExportFormat,
+        trigger: ExportTrigger,
     ) -> Result<Self, ExportError> {
         OpenOptions::new()
             .read(true)
@@ -35,58 +35,29 @@ impl<TClient: ZoteroClient> FileExporter<TClient> {
             client,
             file_path,
             format,
+            trigger,
         })
     }
 
-    pub async fn export(
-        &self,
-        interval: Option<Duration>,
-        cancellation_token: CancellationToken,
-    ) -> Result<ExportSuccess, ExportError> {
-        match interval {
-            Some(duration) if (duration.as_secs() > 0) => {
-                log::info!(
-                    "Starting periodic export every {} seconds",
-                    duration.as_secs()
-                );
-                self.export_periodically(duration, cancellation_token).await
-            }
-            _ => {
-                log::info!("Starting one-time export");
-                self.export_once().await
-            }
-        }
-    }
-
-    async fn export_periodically(
-        &self,
-        duration: Duration,
-        cancellation_token: CancellationToken,
-    ) -> Result<ExportSuccess, ExportError> {
-        let mut interval = tokio::time::interval(duration);
+    /// Export once, then wait on triggers for next exports and return when the trigger stream is closed
+    pub async fn run(mut self) -> Result<ExportSuccess, ExportError> {
         let mut has_changes = false;
-        loop {
-            tokio::select! {
-                _ = interval.tick() => {
-                    log::info!("Starting scheduled export");
-                    match self.export_once().await {
-                        Ok(ExportSuccess::Changes) => {
-                            has_changes = true;
-                        }
-                        Ok(ExportSuccess::NoChanges) => {
-                            // nothing to do
-                        }
-                        Err(e) => {
-                            log::error!("Aborting periodic export due to error: {}", e);
-                            return Err(e);
-                        }
-                    }
+        let mut keep_running = true;
+        while keep_running {
+            log::info!("Starting export");
+            match self.export_once().await {
+                Ok(ExportSuccess::Changes) => {
+                    has_changes = true;
                 }
-                _ = cancellation_token.cancelled() => {
-                    log::info!("Cancellation requested, stopping periodic export");
-                    break;
+                Ok(ExportSuccess::NoChanges) => {
+                    // nothing to do
+                }
+                Err(e) => {
+                    log::error!("Aborting export due to error: {}", e);
+                    return Err(e);
                 }
             }
+            keep_running = self.trigger.next().await.is_some();
         }
         Ok(if has_changes {
             ExportSuccess::Changes
