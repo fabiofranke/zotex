@@ -1,7 +1,7 @@
 mod export;
 mod zotero_api;
 
-use crate::export::FileExporter;
+use crate::export::{ExportTrigger, FileExporter};
 use crate::zotero_api::ExportFormat;
 use crate::zotero_api::api_key::ApiKey;
 use crate::zotero_api::builder::ZoteroClientBuilder;
@@ -41,12 +41,18 @@ async fn main() -> anyhow::Result<()> {
         .build()
         .await
         .with_context(|| "Error during Zotero client initialization.")?;
-    let exporter = FileExporter::try_new(client, args.file.clone(), args.format.clone())
+    let cancellation_token = CancellationToken::new();
+    let trigger = if let Some(interval) = args.interval {
+        ExportTrigger::periodic(
+            Duration::from_secs(interval),
+            cancellation_token.child_token(),
+        )
+    } else {
+        ExportTrigger::none()
+    };
+    let exporter = FileExporter::try_new(client, args.file.clone(), args.format.clone(), trigger)
         .await
         .with_context(|| "Error during file exporter initialization. Please ensure the file path is valid, the directory exists and is accessible.")?;
-
-    let cancellation_token = CancellationToken::new();
-    let child_token = cancellation_token.child_token();
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c()
@@ -57,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     exporter
-        .export(args.interval.map(Duration::from_secs), child_token)
+        .run()
         .await
         .map(|_| ())
         .with_context(|| "Error during export process.")
