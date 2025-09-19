@@ -13,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 const ZOTEXON_VERSION: &str = clap::crate_version!();
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[clap(version, about, long_about = None)]
 struct Args {
     /// Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new
     #[arg(long)]
@@ -27,7 +27,7 @@ struct Args {
     #[arg(long, default_value_t, value_enum)]
     format: ExportFormat,
 
-    /// If set, the program will keep running and export the library every time it gets a notification from Zotero. If not set, the program will export the library once and exit.
+    /// Let the program listen for changes in the Zotero library and automatically export on every change. Program will run until interrupted (e.g. with Ctrl+C).
     #[arg(long)]
     sync: bool,
 }
