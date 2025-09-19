@@ -5,9 +5,9 @@ use crate::export::{ExportTrigger, FileExporter};
 use crate::zotero_api::ExportFormat;
 use crate::zotero_api::api_key::ApiKey;
 use crate::zotero_api::builder::ZoteroClientBuilder;
+use crate::zotero_api::client::ZoteroClient;
 use anyhow::Context;
 use clap::Parser;
-use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 const ZOTEXON_VERSION: &str = clap::crate_version!();
@@ -37,16 +37,16 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    let client = ZoteroClientBuilder::new(ApiKey(args.api_key))
+    let api_key = ApiKey(args.api_key);
+    let client = ZoteroClientBuilder::new(api_key.clone())
         .build()
         .await
         .with_context(|| "Error during Zotero client initialization.")?;
     let cancellation_token = CancellationToken::new();
-    let trigger = if let Some(interval) = args.interval {
-        ExportTrigger::periodic(
-            Duration::from_secs(interval),
-            cancellation_token.child_token(),
-        )
+
+    let trigger = if let Some(_) = args.interval {
+        ExportTrigger::websocket(api_key, client.user_id(), cancellation_token.child_token())
+            .await?
     } else {
         ExportTrigger::none()
     };

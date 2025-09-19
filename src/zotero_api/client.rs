@@ -1,18 +1,25 @@
-use crate::zotero_api::{ApiError, FetchItemsParams, FetchItemsResponse, headers};
+use crate::zotero_api::{API_BASE_URL, ApiError, FetchItemsParams, FetchItemsResponse, headers};
 use reqwest::header::{self, HeaderMap};
 
 pub trait ZoteroClient {
     async fn fetch_items(&self, params: &FetchItemsParams) -> Result<FetchItemsResponse, ApiError>;
+    fn user_id(&self) -> UserId;
 }
 
 pub struct ReqwestZoteroClient {
     http_client: reqwest::Client,
+    user_id: UserId,
     user_url: String,
 }
 
+pub type UserId = u64;
+
 impl ReqwestZoteroClient {
-    pub(in crate::zotero_api) fn new(http_client: reqwest::Client, user_url: String) -> Self {
+    pub(in crate::zotero_api) fn new(http_client: reqwest::Client, user_id: UserId) -> Self {
+        let user_url = format!("{}/users/{}", API_BASE_URL, user_id);
+        log::debug!("User URL: {}", user_url);
         Self {
+            user_id,
             user_url,
             http_client,
         }
@@ -143,6 +150,10 @@ impl ZoteroClient for ReqwestZoteroClient {
             }
         }
         result
+    }
+
+    fn user_id(&self) -> UserId {
+        self.user_id
     }
 }
 

@@ -45,9 +45,7 @@ impl ZoteroClientBuilder {
             .map_err(ApiError::from)?;
         log::info!("Got a valid API key for user {}", key_info.username);
         if key_info.can_access_library() {
-            let user_url = format!("{}/users/{}", API_BASE_URL, key_info.user_id);
-            log::debug!("User URL: {}", user_url);
-            Ok(ReqwestZoteroClient::new(self.http_client, user_url))
+            Ok(ReqwestZoteroClient::new(self.http_client, key_info.user_id))
         } else {
             log::error!("Key does not have access to library");
             Err(ClientBuildError::ApiKeyError(
