@@ -8,8 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- flag argument `--sync` for automatic exports on every change to the library
+
 ### Changed
 - renamed tool to `zotexon`
+
+### Removed
+- argument `--interval` (replaced by `--sync` flag)
 
 ## [0.4.0] - 2025-09-14
 
