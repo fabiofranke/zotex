@@ -27,7 +27,7 @@ impl WebsocketTrigger {
                 result = self.ws_stream.read_response() => {
                     match result {
                         Ok(Response::TopicUpdated { .. }) => {
-                            log::info!("triggering export due to library update");
+                            log::info!("triggering export due to library change notification");
                             let _ = self.trigger_sender.try_send(());
                         },
                         Ok(other) => {

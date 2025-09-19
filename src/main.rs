@@ -23,13 +23,13 @@ struct Args {
     #[arg(long)]
     file: String,
 
-    /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
-    #[arg(long)]
-    interval: Option<u64>,
-
     /// Format to be used for the export
     #[arg(long, default_value_t, value_enum)]
     format: ExportFormat,
+
+    /// If set, the program will keep running and export the library every time it gets a notification from Zotero. If not set, the program will export the library once and exit.
+    #[arg(long)]
+    sync: bool,
 }
 
 #[tokio::main]
@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| "Error during Zotero client initialization.")?;
     let cancellation_token = CancellationToken::new();
 
-    let trigger = if let Some(_) = args.interval {
+    let trigger = if args.sync {
         ExportTrigger::websocket(api_key, client.user_id(), cancellation_token.child_token())
             .await?
     } else {
