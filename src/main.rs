@@ -43,10 +43,10 @@ async fn main() -> anyhow::Result<()> {
         .await
         .with_context(|| "Error during Zotero client initialization.")?;
     let cancellation_token = CancellationToken::new();
-
     let trigger = if args.sync {
         ExportTrigger::websocket(api_key, client.user_id(), cancellation_token.child_token())
-            .await?
+            .await
+            .with_context(|| "Error during WebSocket trigger initialization.")?
     } else {
         ExportTrigger::none()
     };

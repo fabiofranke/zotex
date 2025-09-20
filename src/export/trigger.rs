@@ -1,10 +1,9 @@
-use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
-
 use crate::{
-    export::websocket::WebsocketTriggerBuilder,
+    export::websocket::WebsocketTrigger,
     zotero_api::{api_key::ApiKey, client::UserId},
 };
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 /// Decoupled way of triggering the exporter:
 /// Any `mpsc::Sender` can be used as trigger source
@@ -35,7 +34,7 @@ impl ExportTrigger {
         cancellation_token: CancellationToken,
     ) -> anyhow::Result<Self> {
         let (trigger_sender, trigger_receiver) = mpsc::channel(1);
-        let websocket_trigger = WebsocketTriggerBuilder::new(api_key, user_id, trigger_sender)
+        let websocket_trigger = WebsocketTrigger::builder(api_key, user_id, trigger_sender)
             .try_build()
             .await?;
         tokio::spawn(async move {

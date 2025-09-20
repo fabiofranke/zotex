@@ -41,6 +41,18 @@ impl WebsocketTrigger {
             }
         }
     }
+
+    pub fn builder(
+        api_key: ApiKey,
+        user_id: UserId,
+        trigger_sender: mpsc::Sender<()>,
+    ) -> WebsocketTriggerBuilder {
+        WebsocketTriggerBuilder {
+            api_key,
+            user_id,
+            trigger_sender,
+        }
+    }
 }
 
 pub struct WebsocketTriggerBuilder {
@@ -50,14 +62,7 @@ pub struct WebsocketTriggerBuilder {
 }
 
 impl WebsocketTriggerBuilder {
-    pub fn new(api_key: ApiKey, user_id: UserId, trigger_sender: mpsc::Sender<()>) -> Self {
-        Self {
-            api_key,
-            user_id,
-            trigger_sender,
-        }
-    }
-
+    /// Try to build the WebSocket trigger, establishing the connection and subscribing to the user's library
     pub async fn try_build(self) -> anyhow::Result<WebsocketTrigger> {
         let mut ws_stream = self.connect().await?;
         self.subscribe(&mut ws_stream).await?;
@@ -161,7 +166,7 @@ impl WebsocketStreamExt for WebsocketStream {
                 .await
                 .ok_or(tungstenite::Error::ConnectionClosed)??;
             log::debug!("received message: {:?}", msg);
-            match &msg {
+            match msg {
                 Message::Text(bytes) => {
                     return serde_json::from_str::<Response>(bytes.as_str())
                         .inspect(|res| log::debug!("received response: {:?}", res))
