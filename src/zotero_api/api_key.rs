@@ -1,4 +1,5 @@
 /// Wrapper for the API key string.
+#[derive(Clone)]
 pub struct ApiKey(pub String);
 
 /// Structure for what the GET /keys/current endpoint returns on success.

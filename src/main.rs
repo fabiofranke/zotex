@@ -5,15 +5,15 @@ use crate::export::{ExportTrigger, FileExporter};
 use crate::zotero_api::ExportFormat;
 use crate::zotero_api::api_key::ApiKey;
 use crate::zotero_api::builder::ZoteroClientBuilder;
+use crate::zotero_api::client::ZoteroClient;
 use anyhow::Context;
 use clap::Parser;
-use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 const ZOTEXON_VERSION: &str = clap::crate_version!();
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[clap(version, about, long_about = None)]
 struct Args {
     /// Zotero API Key with read access to your library. Generate a key in your Zotero settings: https://www.zotero.org/settings/keys/new
     #[arg(long)]
@@ -23,13 +23,13 @@ struct Args {
     #[arg(long)]
     file: String,
 
-    /// Interval (in seconds) for periodic exports. If not provided, the program will exit after exporting once
-    #[arg(long)]
-    interval: Option<u64>,
-
     /// Format to be used for the export
     #[arg(long, default_value_t, value_enum)]
     format: ExportFormat,
+
+    /// Let the program listen for changes in the Zotero library and automatically export on every change. Program will run until interrupted (e.g. with Ctrl+C).
+    #[arg(long)]
+    sync: bool,
 }
 
 #[tokio::main]
@@ -37,16 +37,16 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
 
-    let client = ZoteroClientBuilder::new(ApiKey(args.api_key))
+    let api_key = ApiKey(args.api_key);
+    let client = ZoteroClientBuilder::new(api_key.clone())
         .build()
         .await
         .with_context(|| "Error during Zotero client initialization.")?;
     let cancellation_token = CancellationToken::new();
-    let trigger = if let Some(interval) = args.interval {
-        ExportTrigger::periodic(
-            Duration::from_secs(interval),
-            cancellation_token.child_token(),
-        )
+    let trigger = if args.sync {
+        ExportTrigger::websocket(api_key, client.user_id(), cancellation_token.child_token())
+            .await
+            .with_context(|| "Error during WebSocket trigger initialization.")?
     } else {
         ExportTrigger::none()
     };

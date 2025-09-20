@@ -1,4 +1,7 @@
-use std::time::Duration;
+use crate::{
+    export::websocket::WebsocketTrigger,
+    zotero_api::{api_key::ApiKey, client::UserId},
+};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -24,62 +27,32 @@ impl ExportTrigger {
         Self { trigger_receiver }
     }
 
-    /// Create a trigger whose `next()` function will return `Some` repeatedly with the given period, and `None` after the cancellation token gets cancelled.
-    pub fn periodic(period: Duration, cancellation_token: CancellationToken) -> Self {
+    /// Create a trigger based on websocket notifications from Zotero
+    pub async fn websocket(
+        api_key: ApiKey,
+        user_id: UserId,
+        cancellation_token: CancellationToken,
+    ) -> anyhow::Result<Self> {
         let (trigger_sender, trigger_receiver) = mpsc::channel(1);
-        tokio::spawn(trigger_periodically(
-            trigger_sender,
-            period,
-            cancellation_token,
-        ));
-        Self { trigger_receiver }
-    }
-}
-
-async fn trigger_periodically(
-    trigger_sender: mpsc::Sender<()>,
-    period: Duration,
-    cancellation_token: CancellationToken,
-) {
-    let mut interval = tokio::time::interval(period);
-    log::info!(
-        "Starting periodic export trigger with {} seconds",
-        period.as_secs()
-    );
-    loop {
-        tokio::select! {
-            _ = interval.tick() => {
-                log::debug!("Triggering now");
-                let _ = trigger_sender.try_send(());
+        let websocket_trigger = WebsocketTrigger::builder(api_key, user_id, trigger_sender)
+            .try_build()
+            .await?;
+        tokio::spawn(async move {
+            if let Err(e) = websocket_trigger.run(cancellation_token).await {
+                log::error!("WebSocket trigger encountered an error: {:?}", e);
             }
-            _ = cancellation_token.cancelled() => {
-                log::info!("Cancellation requested, stopping periodic export trigger");
-                break;
-            }
-        }
+        });
+        Ok(Self { trigger_receiver })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::export::ExportTrigger;
-    use std::time::Duration;
-    use tokio_util::sync::CancellationToken;
 
     #[tokio::test]
     async fn trigger_none() {
         let mut trigger = ExportTrigger::none();
         assert!(trigger.next().await.is_none())
-    }
-
-    #[tokio::test]
-    async fn trigger_periodic() {
-        let cancellation_token = CancellationToken::new();
-        let mut trigger =
-            ExportTrigger::periodic(Duration::from_millis(1), cancellation_token.clone());
-        assert!(trigger.next().await.is_some());
-        assert!(trigger.next().await.is_some());
-        cancellation_token.cancel();
-        assert!(trigger.next().await.is_none());
     }
 }
