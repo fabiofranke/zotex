@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - ReleaseDate
 
+## [0.5.0] - 2025-09-20
+
 ### Added
 - flag argument `--sync` for automatic exports on every change to the library
 
@@ -69,7 +71,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - simple executable that fetches a zotero lib once in biblatex format
 
 <!-- next-url -->
-[Unreleased]: https://github.com/zotexon/predicates-rs/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/zotexon/predicates-rs/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/zotexon/predicates-rs/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/zotexon/predicates-rs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/zotexon/predicates-rs/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/zotexon/predicates-rs/compare/v0.2.3...v0.2.4
